@@ -3,25 +3,26 @@ clc;
 clear;
 %close all;
 
-Beta = 0.3;            % estimation accuracy
-gamma = 10;    % channel gain after the MRC
+Beta = 0.1;            % estimation accuracy
+gamma = 100;    % channel gain after the MRC
 T = 1;              % time slot / time interval 
 Nx = 3;              % state variables 
 Nu = 2;              % control variables
 Tsim = 5;            % simulation time
 K = Tsim;
 rho = 1e3;
-P_max = 10^(0/10);       % transmit power 0dB
+%P_max = 0.001*10^(60/10);       % transmit power 0dB
+P_max = 10^(10/10);  
 marcQ = update_Q(P_max,Beta,gamma);
 
 %% road geometry
-noLane = 2; 
+noLane = 2;
 laneWidth = 3.72; % United States road width standard
 road_right = 0;
 road_center = road_right + laneWidth;
 road_left = road_right + noLane * laneWidth;
  
-d_min = 5.2;  % 0.5m + length of vehicle (Tesla model3)
+d_min = 0.5;  % 0.5m + length of vehicle (Tesla model3)
 Len_car = 4.7;
 %% Reference of trajectory for the ego vehicle
 Xout = zeros(K,3);   % three dimension (including x, y and theta )
@@ -42,24 +43,24 @@ end
 % Initialization the surrounding vehicles
 
 for i = 1:Nr	  
-    x_l(i) = 30 + 1.38*i;  % location of leader vehicle on EL with velocity 5 km/h
-    x_t(i) = 60 + 11.1*i;  % location of target vehicle on TL with velocity 40 km/h
-    x_f(i) = 10 + 2.78*i;  % location of follow vehicle on TL with velocity 10 km/h
+    x_l(i) = 30 + 8.3*i;  % location of LV with velocity 5 km/h
+    x_t(i) = 40 + 12*i;  % location of TV with velocity 25 km/h
+    x_f(i) = 13 + 6*i;  % location of FV with velocity 7.9 km/h
 end
 tic;
-Num = 5;   %仿真实验次数
+Num = 20;   %仿真实验次数
 Times = zeros(1,Num);
-X0 = [15 laneWidth/2 0];  % initial state: first coloum x, second coloum y, third coloum theta 
-pro = [0.1:0.1:0.8];      % outage probability due to imperfect CSI
+X0 = [20 laneWidth/2 0];         % initial state: first coloum x, second coloum y, third coloum theta 
+pro = [0.1,0.3,0.5];              % outage probability due to imperfect CSI
 for p = 1:length(pro)
     count = 0;
     for t = 1:length(Times)
 
         %% 仿真实验状态初始化
         %I_prb(p) = pro(p)*unifrnd(-1,1);      % perturbation of parameters from -1 to 1
-        I_prb(p) = -0.8*pro(p);
-        % control variable initialization
-        vd1 = 2;                     % longitutial leader vehicle initialize velocity 1 m/s
+        I_prb(p) = randn(1)*pro(p);
+        %control variable initialization
+        vd1 = 9;                     % longitutial leader vehicle initialize velocity 1 m/s
         vd2 = 0;                     % yaw angle
         x_real = zeros(Nr,Nc);       % state-space vector
         x_revised = zeros(Nr,Nc);     % revised-state (considered safe margin)    
@@ -84,9 +85,9 @@ for p = 1:length(pro)
         R = 0.1*eye(Nu*Tsim,Nu*Tsim);
         W = 2*diag(ones(2,1));
         Constraints = [];
-        x_ll = zeros(Nr,1);y_ll = zeros(Nr,1);
-        x_tt = zeros(Nr,1);y_tt = zeros(Nr,1);
-        x_ff = zeros(Nr,1);y_ff = zeros(Nr,1);
+        x_ll = zeros(Nr,1);y_l = zeros(Nr,1);
+        x_tt = zeros(Nr,1);y_t = zeros(Nr,1);
+        x_ff = zeros(Nr,1);y_f = zeros(Nr,1);
         d1 = zeros(Nr,1); d2 = zeros(Nr,1); d3 = zeros(Nr,1);
         count = 0;
         %% state-space model in MPC
@@ -119,7 +120,10 @@ for p = 1:length(pro)
             b_cons = [];
             lb = -6*ones(Nu*Tsim,1);    % lower bound of velocity 
             ub = 6*ones(Nu*Tsim,1);     % upper bound of yaw rate 
-
+            x_ll(i) = 30*(1-I_prb(p)) + 8.3*i;  % location of leader vehicle on EL with velocity 5 km/h
+            x_tt(i) = 40*(1-I_prb(p)) + 12*i;  % location of target vehicle on TL with velocity 40 km/h
+            x_ff(i) = 13*(1+I_prb(p)) + 6*i;  % location of follow vehicle on TL with velocity 10 km/h
+    
 
             yalmip('clear')
             Z = sdpvar(2,1);
@@ -134,7 +138,7 @@ for p = 1:length(pro)
                 Constraints = [Constraints,Z(1) + m_d <= (x_l(i) - d_min)];
             end
 
-            Objective = 1/2*C'*H*C + f'*C+1/2*Z'*W*Z + rho*marcQ/(1-exp(-m_d));
+            Objective = 1/2*C'*H*C + f'*C+1/2*Z'*W*Z + rho()*marcQ/(1-exp(-m_d));
             sol = optimize(Constraints,Objective);
 
             %1/2*C_opt'*H*C_opt + f'*C_opt+1/2*Z'*W*Z
@@ -167,16 +171,14 @@ for p = 1:length(pro)
             % calculate the distance for two vehicles
             % imperfect position of surrounding vehicles 
                 
-            x_ll(i) = 30*(1+I_prb(p)) + 1.38*i;   % location of leader vehicle on EL with velocity 5 km/h
-            y_ll(i) = (laneWidth/2);
-            x_tt(i) = 60*(1+I_prb(p)) + 11.1*i;  % location of target vehicle on TL with velocity 40 km/h
-            y_tt(i) = (laneWidth+laneWidth/2);
-            x_ff(i) = 10*(1+I_prb(p)) + 2.78*i;   % location of follow vehicle on TL with velocity 10 km/h
-            y_ff(i) = (laneWidth+laneWidth/2);
             
-            d1(i) = sqrt((x_real(i,1)-x_ll(i)).^2 + (x_real(i,2)-y_ll(i)).^2);   
-            d2(i) = sqrt((x_real(i,1)-x_tt(i)).^2 + (x_real(i,2)-y_tt(i)).^2);   
-            d3(i) = sqrt((x_real(i,1)-x_ff(i)).^2 + (x_real(i,2)-y_ff(i)).^2);  
+            y_l(i) = (laneWidth/2);
+            y_t(i) = (laneWidth+laneWidth/2);
+            y_f(i) = (laneWidth+laneWidth/2);
+            
+            d1(i) = sqrt((x_real(i,1)-x_l(i)).^2 + (x_real(i,2)-y_l(i)).^2);   
+            d2(i) = sqrt((x_real(i,1)-x_t(i)).^2 + (x_real(i,2)-y_t(i)).^2);   
+            d3(i) = sqrt((x_real(i,1)-x_f(i)).^2 + (x_real(i,2)-y_f(i)).^2);  
             if (d1(i) >= Len_car) && (d2(i) >= Len_car) && (d3(i) >= Len_car)
                 count = count;
             else

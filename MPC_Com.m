@@ -1,12 +1,12 @@
 
 clc;
 clear;
-close all;
+%close all;
 
 
 %% Reference of trajectory for the ego vehicle
-
-N = 20;     
+laneWidth = 3.72; % United States road width standard
+N = 6;     
 T = 1;            % time slot / time interval 
 Xout = zeros(N,3);   % three dimension (including x, y and theta )
 Tout = zeros(N,1); 
@@ -14,8 +14,8 @@ Tout = zeros(N,1);
 %% generate a straight line for reference  
 
 for k = 1:N 
-    Xout(k,1) = k*T;      % ground-truth location 
-    Xout(k,2) = 3;        % the objective location (trajectory of Y-coordinate) 
+    Xout(k,1) = 12 + 3*k*T;      % ground-truth location 
+    Xout(k,2) = laneWidth+laneWidth/2;           % the objective location (trajectory of Y-coordinate) 
     Xout(k,3) = 0;
     Tout(k,1) = (k-1)*T;
 end
@@ -27,13 +27,13 @@ end
 
 Nx = 3;               % state variables 
 Nu = 2;               % control variables
-Tsim = 30;            % simulation time
-X0 = [2 0 0];         % initial state: first coloum x, second coloum y, third coloum theta 
-pro = 0.8;            % outage probability due to imperfect CSI
+Tsim = 10;            % simulation time
+X0 = [15 laneWidth/2 0];          % initial state: first coloum x, second coloum y, third coloum theta 
+pro = 0.3;            % outage probability due to imperfect CSI
 
 % Mobile Robot variable Model
 % control variable initialization
-vd1 = 2;                     % longitutial leader vehicle initialize velocity 2 m/s
+vd1 = 5;                     % longitutial leader vehicle initialize velocity 2 m/s
 vd2 = 0;                     % yaw angle
 x_real = zeros(Nr,Nc);       % state-space vector
 x_piao = zeros(Nr,Nc);
@@ -120,23 +120,23 @@ for i = 1:Nr
     
     % calculate the distance for two vehicles
     
-    d(1:Nr) = sqrt((x_real(1:Nr,1)-X_front(i)).^2 + (x_real(1:Nr,2)-Y_front(i)).^2);
+    %d(1:Nr) = sqrt((x_real(1:Nr,1)-X_front(i)).^2 + (x_real(1:Nr,2)-Y_front(i)).^2);
     
-    %figure(1);
-    %plot(Xout(1:Nr,1),Xout(1:Nr,2),'r*');hold on;
-    %plot(x_real(:,1),x_real(:,2),'k*');hold on;
-    %title('Trajectory Comparison');
-    %legend({'Reference trajectory','Real trajectory with $p^{B}_\mathrm{out}=0.3$','Real trajectory with $p^{B}_\mathrm{out}=0.8$'},'Interpreter','latex');  ;
-    %xlabel('Location in X-coordinate (m)');
-    %ylabel('Location in Y-coordinate (m)');
-    %grid on; 
-    figure(1)
-plot(X_front,Y_front,'r*');hold on;
-plot(x_real(:,1),x_real(:,2),'b^');hold on;
-legend({'Front vehicle','Ego vehicle'},'Interpreter','latex');
-xlabel('Location in X-coordinate (m)');
-ylabel('Location in Y-coordinate (m)');
-grid on; 
+%     figure(1);
+%     plot(Xout(1:Nr,1),Xout(1:Nr,2),'r*');hold on;
+%     plot(x_real(:,1),x_real(:,2),'k*');hold on;
+%     title('Trajectory Comparison');
+%     legend({'Reference trajectory','Real trajectory with $p^{B}_\mathrm{out}=0.3$','Real trajectory with $p^{B}_\mathrm{out}=0.8$'},'Interpreter','latex');  ;
+%     xlabel('Location in X-coordinate (m)');
+%     ylabel('Location in Y-coordinate (m)');
+%     grid on; 
+%     figure(1)
+%     plot(X_front,Y_front,'r*');hold on;
+%     plot(x_real(:,1),x_real(:,2),'b^');hold on;
+%     legend({'Front vehicle','Ego vehicle'},'Interpreter','latex');
+%     xlabel('Location in X-coordinate (m)');
+%     ylabel('Location in Y-coordinate (m)');
+%     grid on; 
     
 end
 
@@ -144,8 +144,8 @@ end
 
 
 figure()
-plot(Xout(1:Nr,1),Xout(1:Nr,2),'r*');hold on;
-plot(x_real(:,1),x_real(:,2),'b*');hold on;
+%plot(Xout(1:Nr,1),Xout(1:Nr,2),'r*');hold on;
+plot(x_real(:,1),x_real(:,2),'bs');hold on;
 legend({'Reference trajectory','Real trajectory with $p^{B}_\mathrm{out}=0.3$','Real trajectory with $p^{B}_\mathrm{out}=0.8$'},'Interpreter','latex');
 xlabel('Location in X-coordinate (m)');
 ylabel('Location in Y-coordinate (m)');
@@ -153,35 +153,35 @@ grid on;
 %axis([0 20 0 4.5]);
 
 
-figure()
-subplot(2,1,1);
-plot(Tout(1:Nr),ve_front,'k--');hold on;   % velocity of the front car
-plot(Tout(1:Nr),(u_real(1:Nr,1)),'k');hold on; 
-legend('Front vehicle','Ego vehicle');
-%axis([0 20 0.8 2]);
-xlabel('time (s)');
-ylabel('longitudinal velocity (m/s)');
-grid on;  
+% figure()
+% subplot(2,1,1);
+% plot(Tout(1:Nr),ve_front,'k--');hold on;   % velocity of the front car
+% plot(Tout(1:Nr),(u_real(1:Nr,1)),'k');hold on; 
+% legend('Front vehicle','Ego vehicle');
+% %axis([0 20 0.8 2]);
+% xlabel('time (s)');
+% ylabel('longitudinal velocity (m/s)');
+% grid on;  
+% 
+% subplot(2,1,2);
+% plot(Tout(1:Nr),Xout(1:Nr,3),'k-.');hold on;
+% plot(Tout(1:Nr),x_real(1:Nr,3),'k');hold on;
+% legend('Front vehicle','Ego vehicle');hold on;
+% xlabel('time (s)');
+% ylabel('yaw angle \theta');
+% grid on; 
+% 
+% 
+% figure()
+% plot(Tout(1:Nr),u_real(1:Nr,2),'b');hold on; 
+% title('Yaw acceleration of the ego car');
+% xlabel('time (s)');
+% ylabel('\omega (m/s^2)');
 
-subplot(2,1,2);
-plot(Tout(1:Nr),Xout(1:Nr,3),'k-.');hold on;
-plot(Tout(1:Nr),x_real(1:Nr,3),'k');hold on;
-legend('Front vehicle','Ego vehicle');hold on;
-xlabel('time (s)');
-ylabel('yaw angle \theta');
-grid on; 
 
-
-figure()
-plot(Tout(1:Nr),u_real(1:Nr,2),'b');hold on; 
-title('Yaw acceleration of the ego car');
-xlabel('time (s)');
-ylabel('\omega (m/s^2)');
-
-
-figure()
-plot(Tout(1:Nr),d(1:Nr),'r-','LineWidth',2);hold on;
-xlabel('sampling time (s)');
-ylabel('Distance between two vehicles (m)');
-grid on;
+% figure()
+% plot(Tout(1:Nr),d(1:Nr),'r-','LineWidth',2);hold on;
+% xlabel('sampling time (s)');
+% ylabel('Distance between two vehicles (m)');
+% grid on;
 

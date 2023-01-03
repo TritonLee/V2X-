@@ -1,21 +1,23 @@
-%function [solution_md, f_value] = update_D(N,T,Nx,Nu,Tsim,rho)
+function [solution_md, f_value] = update_D(N,T,Nx,Nu,Tsim,rho)
 
-clc;
-clear;
-close all;
-tic;
+%clc;
+%clear;
+%close all;
+%tic;
 
+P_max = 100;
+Beta = 0.1;            % estimation accuracy
+gamma = 100;
+sigma = sqrt((1-Beta)/2); 
+sig = 1;
+alpha = 1;
+dis = 10;   % distance from the ES to vehicles
+R = 4;
 
-Beta = 0.3;            % estimation accuracy
-gamma = 20;
-N = 20;     
-T = 1;            % time slot / time interval 
-Nx = 3;               % state variables 
-Nu = 2;               % control variables
-Tsim = 30;            % simulation time
-rho = 1e2;
-
-[auxi,marcQ] = update_Q(Beta,gamma);
+P_ini = P_max;
+temp = (2^R-1)*sig^2/(P_ini*dis^(-alpha));
+f = 1-marcumq(sqrt(Beta*gamma)/sigma,sqrt(temp)/sigma);
+[marcQ] = f;
    
 
 %% road geometry
@@ -46,7 +48,7 @@ end
 for i = 1:Nr	  
     x_l(i) = 4 + 0.5*i;   % location of leader vehicle on EL with velocity 0.5 m/s
     x_t(i) = 10 + i;  % location of target vehicle on TL with velocity 1 m/s
-    x_f(i) = -2 + 0.8*i;   % location of follow vehicle on TL with velocity 0.8 m/s
+    x_f(i) = 0 + 0.8*i;   % location of follow vehicle on TL with velocity 0.8 m/s
 end
 
 X0 = [2 laneWidth/2 0];         % initial state: first coloum x, second coloum y, third coloum theta 
@@ -125,7 +127,7 @@ for i = 1:Nr
         Constraints = [Constraints,Z(1) + m_d <= (x_l(i) - d_min)];
     end
 
-    Objective = 1/2*C'*H*C + f'*C+1/2*Z'*W*Z - rho*logsig(m_d)*marcQ;
+    Objective = 1/2*C'*H*C + f'*C+1/2*Z'*W*Z - rho/(1-exp(-m_d))*marcQ;
     sol = optimize(Constraints,Objective);
     
 
@@ -150,19 +152,11 @@ for i = 1:Nr
     x_real(i+1,2) = eval(XOUT.y);
     x_real(i+1,3) = eval(XOUT.z);
     
-
-    %Constraints = [m_d >= 0,Z(1) + m_d <= (x_t - d_min),Z(1) - m_d >= (x_f + d_min), Z(1) + m_d <= (x_l - d_min)];
-    
-
+    %Constraints = [m_d >= 0,Z(1) + m_d <= (x_t - d_min),Z(1) - m_d >= (x_f + d_min), Z(1) + m_d <= (x_l - d_min)];    
     solution_z = value(Z);
     solution_md = value(m_d);
-    solution = value(Objective);
-    
-    
-    
+    solution = value(Objective);   
 % 
-%     x_revised(i,[1:2]) = solution_z';
-%     x_revised(i,3) = x_real(i,3);
     
     if(i<Nr)
         x_piao(i+1,:) = x_real(i+1,:) - Xout(i+1,:);
@@ -174,21 +168,8 @@ for i = 1:Nr
     d(1:Nr) = sqrt((x_real(1:Nr,1)-X_front(i)).^2 + (x_real(1:Nr,2)-Y_front(i)).^2);   
 
 end
-toc;
 
-figure();
-plot(Xout(1:Nr,1),Xout(1:Nr,2),'b-','LineWidth',1.5);hold on;
-plot(x_real(:,1),x_real(:,2),'r*','LineWidth',2);hold on;
-plot(x_l',(laneWidth/2)*ones(Nr,1),'ks','LineWidth',1.5);hold on;
-plot(x_t',(laneWidth+laneWidth/2)*ones(Nr,1),'gs','LineWidth',1.5);hold on;
-plot(x_f',(laneWidth+laneWidth/2)*ones(Nr,1),'ms','LineWidth',1.5);hold on;
-legend({'Target trajectory','Real trajectory of ego vehicle','Real trajectory of lead vehicle','Real trajectory of target vehicle','Real trajectory of follow vehicle'},'Interpreter','latex');
-xlabel('Location in X-coordinate (m)');
-ylabel('Location in Y-coordinate (m)');
-grid on; 
-%axis([0 20 0 4.5]);
+
 f_value = solution;
 
-
-
-%end
+end

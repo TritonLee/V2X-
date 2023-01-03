@@ -1,26 +1,21 @@
-%function [solution_md, f_value] = update_D(N,T,Nx,Nu,Tsim,rho)
 
 clc;
 clear;
 %close all;
 tic;
-
-N = 10;     
 T = 1;                % time slot / time interval 
 Nx = 3;               % state variables 
 Nu = 2;               % control variables
-Tsim = 10;            % simulation time
-
-
-
+Tsim = 6;            % simulation time
+N = Tsim;
 %% road geometry
 noLane = 2; 
-laneWidth = 3.7; % United States road width standard
+laneWidth = 3.72; % United States road width standard
 road_right = 0;
 road_center = road_right + laneWidth;
 road_left = road_right + noLane * laneWidth;
 
-d_min = 5.2;
+d_min = 0.5;
 Len_car = 4.7;
 %% Reference of trajectory for the ego vehicle
 Xout = zeros(N,3);   % three dimension (including x, y and theta )
@@ -28,8 +23,8 @@ Tout = zeros(N,1);
 
 %% generate a straight line for reference  
 
-for k = 1:N 
-    Xout(k,1) = k*T;      % ground-truth location 
+for k = 1:N
+    Xout(k,1) = 20 + 2*k*T;       % ground-truth location 
     Xout(k,2) = laneWidth+laneWidth/2;        % the objective location (trajectory of Y-coordinate) 
     Xout(k,3) = 0;
     Tout(k,1) = (k-1)*T;
@@ -40,25 +35,23 @@ end
 %% Tracking a constant reference trajectory
 % Initialization the surrounding vehicles
 
-    
-
 for i = 1:Nr	  
     x_l(i) = 30 + 1.38*i;   % location of leader vehicle on EL with velocity 5 km/h
-    x_t(i) = 60 + 11.1*i;     % location of target vehicle on TL with velocity 40 km/h
-    x_f(i) = 10 + 2.78*i;   % location of follow vehicle on TL with velocity 10 km/h
+    x_t(i) = 40 + 7*i;     % location of target vehicle on TL with velocity 25 km/h
+    x_f(i) = 10 + 2.2*i;   % location of follow vehicle on TL with velocity 7.9 km/h
 end
-Num = 100;
+Num = 5;
 Times = zeros(1,Num);
-X0 = [15 laneWidth/2 0];         % initial state: first coloum x, second coloum y, third coloum theta 
-pro = [0.1:0.1:0.9];            % outage probability due to imperfect CSI
+X0 = [20 laneWidth/2 0];         % initial state: first coloum x, second coloum y, third coloum theta 
+pro = [0.1:0.1:0.8];            % outage probability due to imperfect CSI
     
 for p = 1:length(pro)
     count = 0;
     for t = 1:length(Times)
         %I_prb(p) = pro(p)*unifrnd(-1,1);      % perturbation of parameters from -1 to 1
-        I_prb(p) = -rand(1)*pro(p);
+        I_prb(p) = rand(1)*pro(p);
         % control variable initialization
-        vd1 = 3;                     % longitutial leader vehicle initialize velocity 1 m/s
+        vd1 = 2;                     % longitutial leader vehicle initialize velocity 3 m/s
         vd2 = 0;                     % yaw angle
         x_real = zeros(Nr,Nc);       % state-space vector
         x_revised = zeros(Nr,Nc);    % revised-state (considered safe margin)    
@@ -116,8 +109,8 @@ for p = 1:length(pro)
             f = 2*B'*Q*A*x_piao(i,:)';
             A_cons = [];
             b_cons = [];
-            lb = -6*ones(Nu*Tsim,1);    % lower bound of velocity 
-            ub = 6*ones(Nu*Tsim,1);     % upper bound of yaw rate 
+            lb = -5*ones(Nu*Tsim,1);    % lower bound of velocity 
+            ub = 5*ones(Nu*Tsim,1);     % upper bound of yaw rate 
 
             %% use YALMAP solve convex problem (quadratic programming)
             yalmip('clear')
@@ -160,11 +153,11 @@ for p = 1:length(pro)
             % calculate the distance for two vehicles
             % imperfect position of surrounding vehicles 
             
-            x_ll(i) = 30*(1+I_prb(p)) + 1.38*i;   % location of leader vehicle on EL with velocity 5 km/h
+            x_ll(i) = 30*(1-I_prb(p)) + 1.38*i;   % location of leader vehicle on EL with velocity 5 km/h
             y_ll(i) = (laneWidth/2);
-            x_tt(i) = 60*(1+I_prb(p)) + 11.1*i;  % location of target vehicle on TL with velocity 40 km/h
+            x_tt(i) = 40*(1-I_prb(p)) + 7*i;  % location of target vehicle on TL with velocity 40 km/h
             y_tt(i) = (laneWidth+laneWidth/2);
-            x_ff(i) = 10*(1+I_prb(p)) + 2.78*i;   % location of follow vehicle on TL with velocity 10 km/h
+            x_ff(i) = 10*(1+I_prb(p)) + 2.2*i;   % location of follow vehicle on TL with velocity 10 km/h
             y_ff(i) = (laneWidth+laneWidth/2);
 
             d1(i) = sqrt((x_real(i,1)-x_ll(i)).^2 + (x_real(i,2)-y_ll(i)).^2);   
@@ -185,13 +178,12 @@ for p = 1:length(pro)
     
 end
 
+%axis([0 20 0 4.5]);
 
 toc;
 save('basedline.mat','ratio1');
 
-
-
-plot(pro,ratio1,'k-','LineWidth',2);hold on;
+plot(pro,ratio1,'b-','LineWidth',2);hold on;
 xlabel('Outage probability');
 ylabel('Collision probability');
 
